@@ -36,13 +36,29 @@ fi
 
 # Use inline Python to do migrations + recursive merge with PyYAML
 cd "$REPO_ROOT/backend" && uv run python3 -c "
-import sys, shutil, copy, re
+import sys, shutil, copy, re, os
 from pathlib import Path
 
 import yaml
 
-config_path = Path('$CONFIG')
-example_path = Path('$EXAMPLE')
+# Convert Unix-style path from bash to Windows-native path if needed
+config_unix = '$CONFIG'
+example_unix = '$EXAMPLE'
+
+# On Windows, convert /d/path to D:/path or D:\\path
+if sys.platform == 'win32':
+    config_path = Path(config_unix.replace('/', os.sep).lstrip(os.sep))
+    example_path = Path(example_unix.replace('/', os.sep).lstrip(os.sep))
+    # Try to fix drive letter: /d/ -> D:/
+    if len(config_unix) > 2 and config_unix[0] == '/' and config_unix[2] == '/':
+        drive = config_unix[1].upper()
+        config_path = Path(drive + ':' + config_unix[2:])
+    if len(example_unix) > 2 and example_unix[0] == '/' and example_unix[2] == '/':
+        drive = example_unix[1].upper()
+        example_path = Path(drive + ':' + example_unix[2:])
+else:
+    config_path = Path(config_unix)
+    example_path = Path(example_unix)
 
 with open(config_path, encoding='utf-8') as f:
     raw_text = f.read()

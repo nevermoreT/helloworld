@@ -4,6 +4,13 @@
 
 PYTHON ?= python
 
+# GNU Make on Windows often runs recipes in cmd.exe, which has no `sleep`.
+ifeq ($(OS),Windows_NT)
+  SLEEP1 := powershell -NoProfile -Command "Start-Sleep -Seconds 1"
+else
+  SLEEP1 := sleep 1
+endif
+
 help:
 	@echo "DeerFlow Development Commands:"
 	@echo "  make config          - Generate local config files (aborts if config already exists)"
@@ -33,7 +40,7 @@ config:
 	@$(PYTHON) ./scripts/configure.py
 
 config-upgrade:
-	@./scripts/config-upgrade.sh
+	@bash ./scripts/config-upgrade.sh
 
 # Check required tools
 check:
@@ -90,15 +97,15 @@ setup-sandbox:
 
 # Start all services in development mode (with hot-reloading)
 dev:
-	@./scripts/serve.sh --dev
+	@bash ./scripts/serve.sh --dev
 
 # Start all services in production mode (with optimizations)
 start:
-	@./scripts/serve.sh --prod
+	@bash ./scripts/serve.sh --prod
 
 # Start all services in daemon mode (background)
 dev-daemon:
-	@./scripts/start-daemon.sh
+	@bash ./scripts/start-daemon.sh
 
 # Stop all services
 stop:
@@ -108,20 +115,23 @@ stop:
 	@-pkill -f "next dev" 2>/dev/null || true
 	@-pkill -f "next start" 2>/dev/null || true
 	@-pkill -f "next-server" 2>/dev/null || true
-	@-pkill -f "next-server" 2>/dev/null || true
 	@-nginx -c $(PWD)/docker/nginx/nginx.local.conf -p $(PWD) -s quit 2>/dev/null || true
-	@sleep 1
+	@$(SLEEP1)
 	@-pkill -9 nginx 2>/dev/null || true
 	@echo "Cleaning up sandbox containers..."
-	@-./scripts/cleanup-containers.sh deer-flow-sandbox 2>/dev/null || true
-	@echo "✓ All services stopped"
+	@-bash ./scripts/cleanup-containers.sh deer-flow-sandbox 2>/dev/null || true
+	@echo "All services stopped"
 
 # Clean up
 clean: stop
 	@echo "Cleaning up..."
+ifeq ($(OS),Windows_NT)
+	@powershell -NoProfile -Command "Remove-Item -Recurse -Force -ErrorAction SilentlyContinue 'backend/.deer-flow','backend/.langgraph_api'; if (Test-Path 'logs') { Get-ChildItem 'logs' -Filter '*.log' -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue }"
+else
 	@-rm -rf backend/.deer-flow 2>/dev/null || true
 	@-rm -rf backend/.langgraph_api 2>/dev/null || true
 	@-rm -rf logs/*.log 2>/dev/null || true
+endif
 	@echo "✓ Cleanup complete"
 
 # ==========================================
@@ -130,25 +140,25 @@ clean: stop
 
 # Initialize Docker containers and install dependencies
 docker-init:
-	@./scripts/docker.sh init
+	@bash ./scripts/docker.sh init
 
 # Start Docker development environment
 docker-start:
-	@./scripts/docker.sh start
+	@bash ./scripts/docker.sh start
 
 # Stop Docker development environment
 docker-stop:
-	@./scripts/docker.sh stop
+	@bash ./scripts/docker.sh stop
 
 # View Docker development logs
 docker-logs:
-	@./scripts/docker.sh logs
+	@bash ./scripts/docker.sh logs
 
 # View Docker development logs
 docker-logs-frontend:
-	@./scripts/docker.sh logs --frontend
+	@bash ./scripts/docker.sh logs --frontend
 docker-logs-gateway:
-	@./scripts/docker.sh logs --gateway
+	@bash ./scripts/docker.sh logs --gateway
 
 # ==========================================
 # Production Docker Commands
@@ -156,8 +166,8 @@ docker-logs-gateway:
 
 # Build and start production services
 up:
-	@./scripts/deploy.sh
+	@bash ./scripts/deploy.sh
 
 # Stop and remove production containers
 down:
-	@./scripts/deploy.sh down
+	@bash ./scripts/deploy.sh down
